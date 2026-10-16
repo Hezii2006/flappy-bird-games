@@ -1,0 +1,38 @@
+PIPE_WIDTH = 70
+PIPE_GAP = 180
+PIPE_SPEED = 4
+PIPE_COLOR = (0, 200, 0)
+  def create_pipe():
+    gap_y = random.randint(150, HEIGHT - 150)
+
+    return {
+        "x": WIDTH,
+        "top": gap_y - PIPE_GAP // 2,
+        "bottom": gap_y + PIPE_GAP // 2,
+        "passed": False
+    }
+def draw_pipes(surface, pipes):
+    for pipe in pipes:
+        # Ống phía trên
+        pygame.draw.rect(
+            surface,
+            PIPE_COLOR,
+            (
+                pipe["x"],
+                0,
+                PIPE_WIDTH,
+                pipe["top"]
+            )
+        )
+
+        # Ống phía dưới
+        pygame.draw.rect(
+            surface,
+            PIPE_COLOR,
+            (
+                pipe["x"],
+                pipe["bottom"],
+                PIPE_WIDTH,
+                HEIGHT - pipe["bottom"]
+            )
+        )
