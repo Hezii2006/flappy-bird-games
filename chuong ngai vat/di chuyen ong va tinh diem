@@ -1,0 +1,17 @@
+def update_pipes():
+    global score
+
+    for pipe in pipes:
+        # Di chuyển ống từ phải sang trái
+        pipe["x"] -= PIPE_SPEED
+
+        # Cộng điểm khi chim vượt qua cặp ống
+        if not pipe["passed"] and pipe["x"] + PIPE_WIDTH < BIRD_X:
+            pipe["passed"] = True
+            score += 1
+
+    # Xóa ống đã đi ra khỏi màn hình
+    pipes[:] = [
+        pipe for pipe in pipes
+        if pipe["x"] + PIPE_WIDTH > 0
+    ]
