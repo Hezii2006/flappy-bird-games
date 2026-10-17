@@ -1,17 +1,309 @@
-def update_pipes():
-    global score
 
+import pygame
+import random
+
+# ==============================
+# 1. KHỞI TẠO GAME
+# ==============================
+pygame.init()
+
+WIDTH = 400
+HEIGHT = 600
+GROUND_HEIGHT = 60
+GROUND_Y = HEIGHT - GROUND_HEIGHT
+
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Flappy Bird")
+
+clock = pygame.time.Clock()
+FPS = 60
+
+SKY_BLUE = (135, 206, 235)
+GROUND_GREEN = (100, 200, 80)
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+PIPE_COLOR = (0, 200, 0)
+YELLOW = (255, 220, 0)
+
+font = pygame.font.Font(None, 32)
+big_font = pygame.font.Font(None, 48)
+
+# ==============================
+# 2. CẤU HÌNH ỐNG NƯỚC
+# ==============================
+PIPE_WIDTH = 70
+PIPE_GAP = 180
+PIPE_SPEED = 180  # pixel/giây
+PIPE_INTERVAL = 1.5
+
+# ==============================
+# 3. CLASS CHIM
+# ==============================
+class Bird:
+    def __init__(self, x, y):
+        self.x = float(x)
+        self.y = float(y)
+        self.velocity_y = 0.0
+        self.gravity = 1200.0
+        self.flap_strength = -380.0
+        self.max_fall_speed = 600.0
+        self.radius = 15
+
+    def flap(self):
+        self.velocity_y = self.flap_strength
+
+    def update(self, dt):
+        self.velocity_y += self.gravity * dt
+        self.velocity_y = min(
+            self.velocity_y,
+            self.max_fall_speed
+        )
+        self.y += self.velocity_y * dt
+
+    def draw(self, surface):
+        pygame.draw.circle(
+            surface, YELLOW,
+            (int(self.x), int(self.y)),
+            self.radius
+        )
+
+        # Mắt chim
+        pygame.draw.circle(
+            surface, WHITE,
+            (int(self.x + 5), int(self.y - 5)), 4
+        )
+        pygame.draw.circle(
+            surface, BLACK,
+            (int(self.x + 6), int(self.y - 5)), 2
+        )
+
+# ==============================
+# 4. TẠO VÀ VẼ ỐNG NƯỚC
+# ==============================
+def create_pipe():
+    gap_y = random.randint(180, GROUND_Y - 120)
+
+    return {
+        "x": float(WIDTH),
+        "top": gap_y - PIPE_GAP // 2,
+        "bottom": gap_y + PIPE_GAP // 2,
+        "passed": False
+    }
+
+
+def draw_pipes(surface, pipes):
     for pipe in pipes:
-        # Di chuyển ống từ phải sang trái
-        pipe["x"] -= PIPE_SPEED
+        # Ống phía trên
+        pygame.draw.rect(
+            surface,
+            PIPE_COLOR,
+            (
+                int(pipe["x"]),
+                0,
+                PIPE_WIDTH,
+                pipe["top"]
+            )
+        )
 
-        # Cộng điểm khi chim vượt qua cặp ống
-        if not pipe["passed"] and pipe["x"] + PIPE_WIDTH < BIRD_X:
+        # Ống phía dưới
+        pygame.draw.rect(
+            surface,
+            PIPE_COLOR,
+            (
+                int(pipe["x"]),
+                pipe["bottom"],
+                PIPE_WIDTH,
+                GROUND_Y - pipe["bottom"]
+            )
+        )
+
+
+def update_pipes(pipes, bird, score, dt):
+    for pipe in pipes:
+        pipe["x"] -= PIPE_SPEED * dt
+
+        # Cộng điểm khi chim vượt qua ống
+        if (
+            not pipe["passed"]
+            and pipe["x"] + PIPE_WIDTH < bird.x
+        ):
             pipe["passed"] = True
             score += 1
 
-    # Xóa ống đã đi ra khỏi màn hình
+    # Xóa ống đã ra khỏi màn hình
     pipes[:] = [
         pipe for pipe in pipes
         if pipe["x"] + PIPE_WIDTH > 0
     ]
+
+    return score
+
+
+def check_pipe_collision(bird, pipes):
+    bird_rect = pygame.Rect(
+        int(bird.x - bird.radius),
+        int(bird.y - bird.radius),
+        bird.radius * 2,
+        bird.radius * 2
+    )
+
+    for pipe in pipes:
+        top_rect = pygame.Rect(
+            int(pipe["x"]),
+            0,
+            PIPE_WIDTH,
+            pipe["top"]
+        )
+
+        bottom_rect = pygame.Rect(
+            int(pipe["x"]),
+            pipe["bottom"],
+            PIPE_WIDTH,
+            GROUND_Y - pipe["bottom"]
+        )
+
+        if bird_rect.colliderect(top_rect):
+            return True
+
+        if bird_rect.colliderect(bottom_rect):
+            return True
+
+    return False
+
+# ==============================
+# 5. TRẠNG THÁI GAME
+# ==============================
+def reset_game():
+    return Bird(100, 250), [], 0, False, False, 0.0
+
+
+bird, pipes, score, started, game_over, spawn_timer = reset_game()
+running = True
+
+# ==============================
+# 6. VÒNG LẶP GAME
+# ==============================
+while running:
+    dt = min(clock.tick(FPS) / 1000.0, 0.05)
+
+    # Xử lý sự kiện
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                running = False
+
+            elif event.key == pygame.K_SPACE:
+                if game_over:
+                    bird, pipes, score, started, game_over, spawn_timer = reset_game()
+                else:
+                    started = True
+                    bird.flap()
+
+            elif event.key == pygame.K_r and game_over:
+                bird, pipes, score, started, game_over, spawn_timer = reset_game()
+
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                if game_over:
+                    bird, pipes, score, started, game_over, spawn_timer = reset_game()
+                else:
+                    started = True
+                    bird.flap()
+
+    # Cập nhật game
+    if started and not game_over:
+        bird.update(dt)
+
+        # Tạo ống theo khoảng thời gian
+        spawn_timer += dt
+        if spawn_timer >= PIPE_INTERVAL:
+            pipes.append(create_pipe())
+            spawn_timer -= PIPE_INTERVAL
+
+        # Di chuyển ống và tính điểm
+        score = update_pipes(pipes, bird, score, dt)
+
+        # Kiểm tra va chạm với ống
+        if check_pipe_collision(bird, pipes):
+            game_over = True
+
+        # Va chạm với trần
+        if bird.y - bird.radius <= 0:
+            game_over = True
+
+        # Va chạm với mặt đất
+        if bird.y + bird.radius >= GROUND_Y:
+            bird.y = GROUND_Y - bird.radius
+            game_over = True
+
+    # ==============================
+    # 7. VẼ MÀN HÌNH
+    # ==============================
+    screen.fill(SKY_BLUE)
+
+    draw_pipes(screen, pipes)
+
+    pygame.draw.rect(
+        screen,
+        GROUND_GREEN,
+        (0, GROUND_Y, WIDTH, GROUND_HEIGHT)
+    )
+
+    bird.draw(screen)
+
+    # Hiển thị điểm
+    score_text = font.render(
+        f"Score: {score}", True, WHITE
+    )
+    screen.blit(score_text, (10, 10))
+
+    if not started and not game_over:
+        message = font.render(
+            "SPACE / Click to flap", True, WHITE
+        )
+        screen.blit(
+            message,
+            message.get_rect(
+                center=(WIDTH // 2, 150)
+            )
+        )
+
+    if game_over:
+        title = big_font.render(
+            "GAME OVER", True, BLACK
+        )
+        final_score = font.render(
+            f"Score: {score}", True, BLACK
+        )
+        hint = font.render(
+            "SPACE / Click to restart", True, BLACK
+        )
+
+        screen.blit(
+            title,
+            title.get_rect(
+                center=(WIDTH // 2, HEIGHT // 2 - 50)
+            )
+        )
+        screen.blit(
+            final_score,
+            final_score.get_rect(
+                center=(WIDTH // 2, HEIGHT // 2)
+            )
+        )
+        screen.blit(
+            hint,
+            hint.get_rect(
+                center=(WIDTH // 2, HEIGHT // 2 + 40)
+            )
+        )
+
+    pygame.display.flip()
+
+# ==============================
+# 8. KẾT THÚC GAME
+# ==============================
+pygame.quit()
